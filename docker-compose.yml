@@ -16,6 +16,8 @@ version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     image: calciumion/new-api:latest
     container_name: new-api
     restart: always
