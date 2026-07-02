@@ -187,7 +187,12 @@ func main() {
 		MaxAge:   2592000, // 30 days
 		HttpOnly: true,
 		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
+		// 使用 Lax 而非 Strict：GitHub/LinuxDO 等 OAuth 提供方回调时是从第三方站点
+		// 发起的跨站 top-level 导航，Strict 模式下浏览器不会携带 session cookie，
+		// 导致回调无法读取 oauth_state，出现「state 参数为空或不匹配」及注册失败。
+		// Lax 允许跨站 top-level GET 导航携带 cookie（OAuth 回调场景），
+		// 同时仍阻止跨站 POST / 子资源请求携带 cookie，CSRF 防护不受影响。
+		SameSite: http.SameSiteLaxMode,
 	})
 	server.Use(sessions.Sessions("session", store))
 
