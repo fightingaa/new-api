@@ -19,6 +19,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     image: calciumion/new-api:latest
+    build: . # 从本地源码构建，使代码修改生效
     container_name: new-api
     restart: always
     command: --log-dir /app/logs
