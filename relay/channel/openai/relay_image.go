@@ -24,13 +24,17 @@ import (
 func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
 	defer service.CloseResponseBodyGracefully(resp)
 
+	tStart := time.Now()
 	responseBody, err := io.ReadAll(resp.Body)
+	tReadAll := time.Now()
+	inBodyLen := len(responseBody)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
 	}
 
 	var usageResp dto.SimpleResponse
 	err = common.Unmarshal(responseBody, &usageResp)
+	tUnmarshal := time.Now()
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
@@ -41,6 +45,20 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
+	tIOCopy := time.Now()
+
+	// 耗时日志：超过 1 秒的请求记录各阶段耗时
+	if elapsed := tIOCopy.Sub(tStart); elapsed > time.Second {
+		logger.LogWarn(c, fmt.Sprintf(
+			"\033[1;36m[openai-image-timing]\033[0m readAll=\033[33m%dus\033[0m \033[90m|\033[0m unmarshal=\033[33m%dus\033[0m \033[90m|\033[0m ioCopy=\033[33m%dus\033[0m \033[90m|\033[0m total=\033[1;32m%dus\033[0m \033[90m|\033[0m in=\033[35m%d\033[0m out=\033[35m%d\033[0m",
+			tReadAll.Sub(tStart).Microseconds(),
+			tUnmarshal.Sub(tReadAll).Microseconds(),
+			tIOCopy.Sub(tUnmarshal).Microseconds(),
+			elapsed.Microseconds(),
+			inBodyLen,
+			len(responseBody),
+		))
+	}
 
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
